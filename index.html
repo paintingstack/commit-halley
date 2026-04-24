@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commit Halley</title>
+  <meta name="description" content="See which words you actually use in your commit messages. Type a GitHub username, get a chart.">
+  <meta property="og:title" content="Commit Halley">
+  <meta property="og:description" content="See which words you actually use in your commit messages">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://paintingstack.github.io/commit-halley/">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preconnect" href="https://d3js.org" crossorigin>
+  <link rel="dns-prefetch" href="https://api.github.com">
+  <meta property="og:image" content="https://paintingstack.github.io/commit-halley/icon-og.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="title-block">
+      <img src="icon-small.png" alt="" class="title-icon">
+      <div>
+        <h1>Commit Halley</h1>
+        <p class="subtitle">See which words you actually use in your commits</p>
+      </div>
+    </div>
+    <form id="search-form">
+      <div class="form-field">
+        <label for="username-input">GitHub user</label>
+        <input type="text" id="username-input" placeholder="e.g. torvalds" required autocomplete="off" spellcheck="false">
+      </div>
+      <div class="form-field">
+        <label for="token-input">
+          Token (optional, for private repos)
+          <button type="button" id="token-help-toggle" class="help-toggle">?</button>
+        </label>
+        <input type="password" id="token-input" autocomplete="off" spellcheck="false">
+      </div>
+      <button type="submit" id="submit-button">See words</button>
+    </form>
+    <div id="token-help" class="help-box">
+      <p>Without a token you can see <strong>public repos only</strong> and are limited to <strong>60 API requests per hour</strong>.</p>
+      <p>With a token you get <strong>your private repos</strong> and <strong>5,000 requests per hour</strong>.</p>
+      <p class="help-steps">
+        <strong>How to get one:</strong>
+        Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">github.com/settings/tokens/new</a>,
+        select <em>public_repo</em> scope (or <em>repo</em> for private repos), generate, and paste it here.
+      </p>
+      <p class="help-security">Your token is stored in your browser session only (cleared when you close the tab) and sent exclusively to the GitHub API. No server, no tracking, no third parties.</p>
+    </div>
+    <p id="status" class="status"></p>
+    <div id="suggestions">
+      <span class="suggestions-label">Try</span>
+      <button class="suggestion" data-username="torvalds">torvalds</button>
+      <button class="suggestion" data-username="mitsuhiko">mitsuhiko</button>
+      <button class="suggestion" data-username="gaearon">gaearon</button>
+      <button class="suggestion" data-username="antirez">antirez</button>
+      <button class="suggestion" data-username="fabpot">fabpot</button>
+      <button class="suggestion" data-username="sindresorhus">sindresorhus</button>
+      <button class="suggestion" data-username="mitchellh">mitchellh</button>
+    </div>
+  </header>
+
+  <div id="content">
+    <main>
+      <div id="chart"></div>
+    </main>
+
+    <div id="commit-panel">
+      <div id="commit-panel-header">
+        <span id="commit-panel-title"></span>
+        <button id="commit-panel-close">Close</button>
+      </div>
+      <div id="commit-panel-list"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p class="stop-words-label">Common words removed</p>
+    <p id="stop-words"></p>
+    <p class="credit">Built by <a href="https://paintingstack.com" target="_blank" rel="noopener">Paintingstack</a> / <a href="https://github.com/paintingstack/commit-halley" target="_blank" rel="noopener">Source</a></p>
+  </footer>
+
+  <div id="tooltip"></div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
