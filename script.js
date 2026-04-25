@@ -1,14 +1,12 @@
 /* ── Constants ──────────────────────────────────────── */
 
 const GITHUB_API_BASE = 'https://api.github.com';
-const COMMITS_PER_PAGE = 100;
-const REPOS_PER_PAGE = 100;
+const SEARCH_PER_PAGE = 100;
+const SEARCH_MAX_RESULTS = 1000;
 const MIN_WORD_LENGTH = 2;
 const MAX_WORDS_DISPLAYED = 200;
-const TOKEN_STORAGE_KEY = 'commit-halley-token';
 const DEFAULT_USERNAME = 'torvalds';
 const CACHE_FILE = `cache-${DEFAULT_USERNAME}.json`;
-const CONCURRENT_FETCHES = 5;
 
 const PALETTE = [
   '#1a1a1a',  // ivory black
@@ -103,108 +101,58 @@ function isGitHubUrl(url) {
 
 /* ── GitHub API ─────────────────────────────────────── */
 
-async function githubFetch(url, token) {
-  const headers = { Accept: 'application/vnd.github.v3+json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const response = await fetch(url, { headers });
-
-  if (!response.ok) {
-    const remaining = response.headers.get('X-RateLimit-Remaining');
-
-    if (response.status === 403 && remaining === '0') {
-      const resetTimestamp = response.headers.get('X-RateLimit-Reset');
-      const resetDate = new Date(Number(resetTimestamp) * 1000);
-      throw new Error(
-        `Rate limited. Resets at ${resetDate.toLocaleTimeString()}. Add a token for higher limits.`
-      );
-    }
-
-    if (response.status === 404) {
-      throw new Error('User not found.');
-    }
-
-    throw new Error(`GitHub API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const linkHeader = response.headers.get('Link');
-  const nextPageUrl = parseNextPageUrl(linkHeader);
-
-  return { data, nextPageUrl };
-}
-
-async function fetchAllPages(url, token) {
-  const results = [];
-  let currentUrl = url;
-
-  while (currentUrl) {
-    const { data, nextPageUrl } = await githubFetch(currentUrl, token);
-    results.push(...data);
-    currentUrl = nextPageUrl;
-  }
-
-  return results;
-}
-
-async function fetchRepos(username, token) {
+async function searchCommits(username, onProgress) {
   const encoded = encodeURIComponent(username);
-  const url = `${GITHUB_API_BASE}/users/${encoded}/repos?per_page=${REPOS_PER_PAGE}&sort=pushed`;
-  return fetchAllPages(url, token);
-}
-
-async function fetchRepoCommits(repoFullName, username, token) {
-  const [owner, repo] = repoFullName.split('/');
-  const encoded = encodeURIComponent(username);
-  const url =
-    `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits` +
-    `?author=${encoded}&per_page=${COMMITS_PER_PAGE}`;
-  const { data } = await githubFetch(url, token);
-  return data;
-}
-
-async function fetchAllCommitData(username, token, onProgress) {
-  const repos = await fetchRepos(username, token);
-  const ownRepos = repos.filter(repo => !repo.fork);
-
-  if (ownRepos.length === 0) {
-    throw new Error('No repositories found for this user.');
-  }
-
-  onProgress(`Found ${ownRepos.length} repositories`);
-
   const allCommits = [];
-  let completed = 0;
+  let page = 1;
+  let totalCount = 0;
 
-  for (let i = 0; i < ownRepos.length; i += CONCURRENT_FETCHES) {
-    const batch = ownRepos.slice(i, i + CONCURRENT_FETCHES);
+  while (allCommits.length < SEARCH_MAX_RESULTS) {
+    onProgress(`Fetching commits (page ${page})...`);
 
-    const results = await Promise.allSettled(
-      batch.map(repo => fetchRepoCommits(repo.full_name, username, token))
-    );
+    const url =
+      `${GITHUB_API_BASE}/search/commits` +
+      `?q=author:${encoded}&per_page=${SEARCH_PER_PAGE}&page=${page}&sort=author-date&order=desc`;
 
-    for (let j = 0; j < results.length; j++) {
-      completed++;
-      const result = results[j];
-      const repo = batch[j];
+    const response = await fetch(url, {
+      headers: { Accept: 'application/vnd.github.cloak-preview+json' },
+    });
 
-      if (result.status === 'fulfilled') {
-        for (const commit of result.value) {
-          allCommits.push({
-            message: commit.commit.message.split('\n')[0],
-            repo: repo.name,
-            url: commit.html_url,
-          });
-        }
-      } else if (result.reason?.message?.includes('Rate limited')) {
-        return { commits: allCommits, partial: true, completed, total: ownRepos.length };
+    if (!response.ok) {
+      if (response.status === 422) {
+        throw new Error('User not found.');
       }
+
+      if (response.status === 403 || response.status === 429) {
+        if (allCommits.length > 0) break;
+        const resetTimestamp = response.headers.get('X-RateLimit-Reset');
+        const resetDate = new Date(Number(resetTimestamp) * 1000);
+        throw new Error(`Rate limited. Try again at ${resetDate.toLocaleTimeString()}.`);
+      }
+
+      throw new Error(`GitHub API error: ${response.status}`);
     }
 
-    onProgress(`${completed}/${ownRepos.length} repos`);
+    const data = await response.json();
+    totalCount = data.total_count;
+
+    if (data.items.length === 0) break;
+
+    for (const item of data.items) {
+      allCommits.push({
+        message: item.commit.message.split('\n')[0],
+        repo: item.repository.full_name,
+        url: item.html_url,
+      });
+    }
+
+    onProgress(`${allCommits.length} / ${Math.min(totalCount, SEARCH_MAX_RESULTS)} commits`);
+
+    if (data.items.length < SEARCH_PER_PAGE) break;
+    page++;
   }
 
-  return { commits: allCommits, partial: false, completed: ownRepos.length, total: ownRepos.length };
+  return { commits: allCommits, totalCount };
 }
 
 
@@ -419,11 +367,16 @@ function showError(message) {
 
 /* ── Main ───────────────────────────────────────────── */
 
-function processAndRender(commits) {
+function processAndRender(commits, totalCount) {
   storedCommits = commits;
   const words = tokenizeMessages(commits);
   const wordCounts = countWordFrequencies(words);
-  showStatus(`${commits.length} commits / ${words.length} words / ${wordCounts.length} unique`);
+
+  const countNote = totalCount > SEARCH_MAX_RESULTS
+    ? ` (showing ${commits.length} of ${totalCount.toLocaleString()})`
+    : '';
+
+  showStatus(`${commits.length} commits / ${words.length} words / ${wordCounts.length} unique${countNote}`);
   renderChart(wordCounts);
 }
 
@@ -442,37 +395,25 @@ async function generateChart(username) {
   if (isLoading) return;
   isLoading = true;
 
-  const tokenInput = document.getElementById('token-input');
   const submitButton = document.getElementById('submit-button');
-
-  const token = tokenInput.value.trim();
-  if (token) {
-    sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
-  }
 
   setUrlUser(username);
   submitButton.disabled = true;
   closeCommitPanel();
-  showStatus('Fetching repositories...');
+  showStatus('Searching commits...');
 
   const chart = document.getElementById('chart');
   chart.classList.add('loading');
 
   try {
-    const result = await fetchAllCommitData(username, token, showStatus);
+    const result = await searchCommits(username, showStatus);
 
     if (result.commits.length === 0) {
       showError('No commits found.');
       return;
     }
 
-    processAndRender(result.commits);
-
-    if (result.partial) {
-      showStatus(
-        `Rate limited: showing ${result.completed}/${result.total} repos. Add a token for higher limits.`
-      );
-    }
+    processAndRender(result.commits, result.totalCount);
   } catch (error) {
     showError(error.message);
   } finally {
@@ -496,17 +437,6 @@ function handleSuggestionClick(event) {
   generateChart(username);
 }
 
-function loadSavedToken() {
-  const savedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY);
-  if (savedToken) {
-    document.getElementById('token-input').value = savedToken;
-  }
-}
-
-function toggleTokenHelp() {
-  document.getElementById('token-help').classList.toggle('open');
-}
-
 async function loadDefaultChart() {
   document.getElementById('username-input').value = DEFAULT_USERNAME;
 
@@ -514,7 +444,7 @@ async function loadDefaultChart() {
     const response = await fetch(CACHE_FILE);
     if (!response.ok) return;
     const commits = await response.json();
-    processAndRender(commits);
+    processAndRender(commits, commits.length);
   } catch {
     // Cache not available
   }
@@ -523,7 +453,6 @@ async function loadDefaultChart() {
 function init() {
   document.getElementById('search-form').addEventListener('submit', handleSubmit);
   document.getElementById('commit-panel-close').addEventListener('click', closeCommitPanel);
-  document.getElementById('token-help-toggle').addEventListener('click', toggleTokenHelp);
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeCommitPanel();
@@ -534,7 +463,6 @@ function init() {
     button.addEventListener('click', handleSuggestionClick);
   }
 
-  loadSavedToken();
   renderStopWordsList();
 
   const urlUser = getUrlUser();

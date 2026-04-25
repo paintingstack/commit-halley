@@ -30,30 +30,13 @@
         <label for="username-input">GitHub user</label>
         <input type="text" id="username-input" placeholder="e.g. torvalds" required autocomplete="off" spellcheck="false">
       </div>
-      <div class="form-field">
-        <label for="token-input">
-          Token (optional, for private repos)
-          <button type="button" id="token-help-toggle" class="help-toggle">?</button>
-        </label>
-        <input type="password" id="token-input" autocomplete="off" spellcheck="false">
-      </div>
       <button type="submit" id="submit-button">See words</button>
     </form>
-    <div id="token-help" class="help-box">
-      <p>Without a token you can see <strong>public repos only</strong> and are limited to <strong>60 API requests per hour</strong>.</p>
-      <p>With a token you get <strong>your private repos</strong> and <strong>5,000 requests per hour</strong>.</p>
-      <p class="help-steps">
-        <strong>How to get one:</strong>
-        Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">github.com/settings/tokens/new</a>,
-        select <em>public_repo</em> scope (or <em>repo</em> for private repos), generate, and paste it here.
-      </p>
-      <p class="help-security">Your token is stored in your browser session only (cleared when you close the tab) and sent exclusively to the GitHub API. No server, no tracking, no third parties.</p>
-    </div>
     <p id="status" class="status"></p>
     <div id="suggestions">
       <span class="suggestions-label">Try</span>
       <button class="suggestion" data-username="torvalds">Linus Torvalds</button>
-      <button class="suggestion" data-username="yyx990803">Evan You</button>
+      <button class="suggestion" data-username="dhh">DHH</button>
       <button class="suggestion" data-username="rauchg">Guillermo Rauch</button>
       <button class="suggestion" data-username="karpathy">Andrej Karpathy</button>
       <button class="suggestion" data-username="antirez">Antirez</button>
