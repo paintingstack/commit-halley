@@ -65,7 +65,10 @@ function getTextColor(backgroundColor) {
 function parseNextPageUrl(linkHeader) {
   if (!linkHeader) return null;
   const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-  return match ? match[1] : null;
+  if (!match) return null;
+  const url = match[1];
+  if (!url.startsWith(GITHUB_API_BASE + '/')) return null;
+  return url;
 }
 
 function measureTextWidth(text, fontSize) {
@@ -150,9 +153,10 @@ async function fetchRepos(username, token) {
 }
 
 async function fetchRepoCommits(repoFullName, username, token) {
+  const [owner, repo] = repoFullName.split('/');
   const encoded = encodeURIComponent(username);
   const url =
-    `${GITHUB_API_BASE}/repos/${repoFullName}/commits` +
+    `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits` +
     `?author=${encoded}&per_page=${COMMITS_PER_PAGE}`;
   const { data } = await githubFetch(url, token);
   return data;

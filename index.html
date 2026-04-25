@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://d3js.org" crossorigin>
   <link rel="dns-prefetch" href="https://api.github.com">
   <meta property="og:image" content="https://paintingstack.github.io/commit-halley/icon-og.png">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://d3js.org; style-src 'self'; connect-src 'self' https://api.github.com; img-src 'self'; frame-ancestors 'self'">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -83,7 +84,7 @@
 
   <div id="tooltip"></div>
 
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
   <script src="script.js"></script>
 </body>
 </html>
