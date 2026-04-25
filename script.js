@@ -99,7 +99,7 @@ async function searchCommits(username, onProgress) {
   let totalCount = 0;
 
   while (allCommits.length < SEARCH_MAX_RESULTS) {
-    onProgress(`Fetching commits (page ${page})...`);
+    onProgress(`Fetching commits (${allCommits.length + SEARCH_PER_PAGE})...`);
 
     const url =
       `${GITHUB_API_BASE}/search/commits` +
