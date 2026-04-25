@@ -40,6 +40,7 @@ const STOP_WORDS = new Set([
 /* ── State ──────────────────────────────────────────── */
 
 let storedCommits = [];
+let isLoading = false;
 
 
 /* ── Helpers ────────────────────────────────────────── */
@@ -438,6 +439,9 @@ function getUrlUser() {
 }
 
 async function generateChart(username) {
+  if (isLoading) return;
+  isLoading = true;
+
   const tokenInput = document.getElementById('token-input');
   const submitButton = document.getElementById('submit-button');
 
@@ -472,6 +476,7 @@ async function generateChart(username) {
   } catch (error) {
     showError(error.message);
   } finally {
+    isLoading = false;
     submitButton.disabled = false;
     chart.classList.remove('loading');
   }
