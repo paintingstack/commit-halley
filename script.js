@@ -61,15 +61,6 @@ function getTextColor(backgroundColor) {
   return luminance > 0.55 ? '#111111' : '#ffffff';
 }
 
-function parseNextPageUrl(linkHeader) {
-  if (!linkHeader) return null;
-  const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-  if (!match) return null;
-  const url = match[1];
-  if (!url.startsWith(GITHUB_API_BASE + '/')) return null;
-  return url;
-}
-
 function measureTextWidth(text, fontSize) {
   const canvas = measureTextWidth.canvas ||
     (measureTextWidth.canvas = document.createElement('canvas'));
@@ -115,12 +106,12 @@ async function searchCommits(username, onProgress) {
       `?q=author:${encoded}&per_page=${SEARCH_PER_PAGE}&page=${page}&sort=author-date&order=desc`;
 
     const response = await fetch(url, {
-      headers: { Accept: 'application/vnd.github.cloak-preview+json' },
+      headers: { Accept: 'application/vnd.github+json' },
     });
 
     if (!response.ok) {
       if (response.status === 422) {
-        throw new Error('User not found.');
+        throw new Error('Invalid search query.');
       }
 
       if (response.status === 403 || response.status === 429) {
